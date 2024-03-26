@@ -195,4 +195,3 @@ dependencies:
       - widgetsnbextension==4.0.10
       - wrapt==1.16.0
       - zipp==3.18.1
-prefix: /home/esevegnes/miniconda3/envs/astro-nn-gpu
