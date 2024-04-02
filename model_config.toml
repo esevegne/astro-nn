@@ -1,0 +1,16 @@
+[stat]
+seed = 1
+
+[data]
+t1 = 2015-09-07T00:00:00 #begin of time interval for downloading data
+t2 = 2015-09-30T00:00:00 #end of time interval for downloading data
+sat = "mms1" #satelit name
+density_threshold = 1 #cm-3
+
+[model]
+name = "DNN_PINNS=True_Shuffle"
+f_train = 0.8
+f_valid = 0.1
+f_test = 0.1
+shuffle = true
+PINNS = true

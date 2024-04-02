@@ -22,10 +22,9 @@ import torchvision.transforms as T
 from datetime import datetime
 import calendar
 import random
-import speasy as spz
-from speasy import amda 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import toml
 
 def first_dnn(input_features,output_targets):
     model = keras.Sequential([
@@ -88,16 +87,16 @@ m_i = 1.67262192369e-27
 m_e = 9.1093837015e-31
 if __name__ == "__main__":
     ## Global interval - all the data will be inside this range
-    sat = 'mms1'
-    t1 = datetime(2015,9,7,0,0,0)
-    t2 = datetime(2015,9,30,0,0,0)
-    f_train, f_valid, f_test = 0.80, 0.1, 0.1
-    seed = 1
-    PINNS = True #Do we physics inform the model ? i.e. giving cross products
-
-    ### Fix the random seed for producible resutls 
-    # Seed value
-    seed = 1
+    config = toml.load('model_config.toml')
+    seed = config['stat']['seed']
+    t1 = config['data']['t1']
+    t2 = config['data']['t2']
+    sat = config['data']['sat']
+    density_threshold = config['data']['density_threshold']
+    name = config['model']['name']
+    f_train, f_valid, f_test = config['model']['f_train'], config['model']['f_valid'], config['model']['f_test']
+    shuffle = config['model']['shuffle']
+    PINNS = config['model']['PINNS']
 
     # 1. Set the `PYTHONHASHSEED` environment variable at a fixed value
     os.environ['PYTHONHASHSEED']=str(seed)
@@ -197,7 +196,7 @@ if __name__ == "__main__":
 
     model = first_dnn(input_features,output_targets)
     #model.summary()
-    name = f"DNN_PINNS={PINNS}_Shuffle"
+
     log_dir = f'../logs/fit/{name}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
     
 
