@@ -97,6 +97,8 @@ if __name__ == "__main__":
     f_train, f_valid, f_test = config['model']['f_train'], config['model']['f_valid'], config['model']['f_test']
     shuffle = config['model']['shuffle']
     PINNS = config['model']['PINNS']
+    epochs = config['model']['epochs']
+    patience = config['model']['patience']
 
     # 1. Set the `PYTHONHASHSEED` environment variable at a fixed value
     os.environ['PYTHONHASHSEED']=str(seed)
@@ -174,7 +176,7 @@ if __name__ == "__main__":
     print("Test interval: ", t_test_begin, t_test_end)
 
 
-    df_train, df_test = train_test_split(df,test_size = f_test+f_valid,train_size=f_train,random_state=seed,shuffle=True)
+    df_train, df_test = train_test_split(df,test_size = f_test+f_valid,train_size=f_train,random_state=seed,shuffle=shuffle)
     df_val, df_test = df_test.iloc[:len(df_test)//2,:], df_test.iloc[len(df_test)//2:,:]
 
     ## Define a scaler function
@@ -203,12 +205,12 @@ if __name__ == "__main__":
     # checkpoint
     filepath= f'../Saved_models/{name}/_weights.best.keras'
     checkpoint = keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True)
-    earlystopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    earlystopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience)
     
     #X_train, y_train = lstm_data_transform(X_train,y_train)
     #X_val, y_val = lstm_data_transform(X_val,y_val)
     my_callbacks = [earlystopping_callback, checkpoint]
-    model.fit(X_train, y_train, epochs=30, 
+    model.fit(X_train, y_train, epochs=epochs, 
             validation_data=(X_val, y_val), verbose=2,
             callbacks=my_callbacks)
     model.save(f'../Saved_models/{name}/model.keras')
