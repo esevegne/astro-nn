@@ -4,15 +4,15 @@ seed = 1
 [data]
 t1 = 2015-09-07T00:00:00 #begin of time interval for downloading data
 t2 = 2016-01-31T00:00:00 #end of time interval for downloading data
-sat = "mms1" #satelit name
+sat = "mms2" #satelit name
 density_threshold = 1 #cm-3
 
 [model]
-name = "DNN_Xlong_100epochs"
+name = "DNN_XL_SP_0"
 f_train = 0.8
 f_valid = 0.1
 f_test = 0.1
-shuffle = true
-PINNS = true
+shuffle = true #shuffle test, train, and validation
+PINNS = true #give or not the cross product for E_hall and E_mhd
 epochs = 100
 patience = 15
