@@ -25,12 +25,14 @@ import random
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import toml
+import h5py
 
 def first_dnn(input_features,output_targets):
     model = keras.Sequential([
         layers.Dense(len(input_features), activation='relu'),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(64, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(128, activation='relu'),
         layers.Dropout(0.2),
         layers.Dense(len(output_targets))
     ])
@@ -99,7 +101,9 @@ if __name__ == "__main__":
     PINNS = config['model']['PINNS']
     epochs = config['model']['epochs']
     patience = config['model']['patience']
-
+    
+    with open(f'../Saved_models/{name}/model.toml','w') as f:
+        toml.dump(config,f)
     # 1. Set the `PYTHONHASHSEED` environment variable at a fixed value
     os.environ['PYTHONHASHSEED']=str(seed)
     # 2. Set the `python` built-in pseudo-random generator at a fixed value
@@ -111,17 +115,16 @@ if __name__ == "__main__":
     #torch.use_deterministic_algorithms(mode=True)
 
     ## Loading data
-    store = pd.HDFStore('./data.hdf5','r')
-    bursts = store.keys()
-    store.close()
-    del store
+    file = h5py.File('./data.hdf5','r')
+    bursts = list(file[f"{sat}"].keys())
+    file.close()
 
-    bursts = [datetime.strptime(burst, '/mms1_%Y_%m_%dT%H_%M_%S') for burst in bursts]
+    #bursts = [datetime.strptime(burst, f'/{sat}/%Y_%m_%dT%H_%M_%S') for burst in bursts]
     bursts = pd.DataFrame(bursts)
 
     bursts = bursts.where((str(t1.date()) < bursts)&(bursts < str(t2.date()))).dropna()
 
-    df = pd.concat([pd.read_hdf('./data.hdf5',key=sat+"_"+datetime.strftime(pd.to_datetime(event[0]),format='%Y_%m_%dT%H_%M_%S')) for event in bursts.values]).dropna()
+    df = pd.concat([pd.read_hdf('./data.hdf5',key=f"{sat}/{event[0]}") for event in bursts.values]).dropna()
     ## Calculating velocity, and droping small density data
 
     df['ux']=(m_i*df['vx_i']+m_e*df['vx_e'])/(m_i+m_e)
@@ -186,7 +189,7 @@ if __name__ == "__main__":
     ## Apply the scaling obtained from the “train” data to “validation” and “test” data
     df_val_scaled = scaler.transform(df_val)
     df_test_scaled = scaler.transform(df_test)
-
+    joblib.dump(scaler, f'../Saved_models/{name}/scaler.save') #Save the scale
     ## Get input 'X'
     X_train = df_train_scaled[:,0:len(input_features)]
     X_test = df_test_scaled[:,0:len(input_features)]
@@ -200,7 +203,6 @@ if __name__ == "__main__":
     #model.summary()
 
     log_dir = f'../logs/fit/{name}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
-    
 
     # checkpoint
     filepath= f'../Saved_models/{name}/_weights.best.keras'
