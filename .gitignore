@@ -1,4 +1,5 @@
 *.log
 *.csv
 *.toml
-data.hdf5
+*.hdf5
+__pycache__
