@@ -49,7 +49,7 @@ def E_mhd(df):
     '''
     dg = pd.DataFrame(index=df.index,columns=['ex','ey','ez'])
     dg['ex']=(df['by']*df['uz']-df['uy']*df['bz'])/1e3
-    dg['ey']=-(df['bz']*df['ux']-df['uz']*df['bx'])/1e3 #MINUS SIGN TO FIT MEASUREMENTS IN MMS1 MAYBE THERE IS A ISSUE WITH THE MEASUREMENT TOOL IN MMS1
+    dg['ey']=(df['bz']*df['ux']-df['uz']*df['bx'])/1e3 #MINUS SIGN TO FIT MEASUREMENTS IN MMS1 MAYBE THERE IS A ISSUE WITH THE MEASUREMENT TOOL IN MMS1
     dg['ez']=(df['bx']*df['uy']-df['ux']*df['by'])/1e3
     return dg
 
@@ -89,21 +89,24 @@ m_i = 1.67262192369e-27
 m_e = 9.1093837015e-31
 if __name__ == "__main__":
     ## Global interval - all the data will be inside this range
-    config = toml.load('model_config.toml')
-    seed = config['stat']['seed']
-    t1 = config['data']['t1']
-    t2 = config['data']['t2']
-    sat = config['data']['sat']
-    density_threshold = config['data']['density_threshold']
-    name = config['model']['name']
-    f_train, f_valid, f_test = config['model']['f_train'], config['model']['f_valid'], config['model']['f_test']
-    shuffle = config['model']['shuffle']
-    PINNS = config['model']['PINNS']
-    epochs = config['model']['epochs']
-    patience = config['model']['patience']
-    
-    with open(f'../Saved_models/{name}/model.toml','w') as f:
-        toml.dump(config,f)
+    with open('./model_config.toml','r') as f:
+        config = toml.load(f)
+        seed = config['stat']['seed']
+        t1 = config['data']['t1']
+        t2 = config['data']['t2']
+        sat = config['data']['sat']
+        density_threshold = config['data']['density_threshold']
+        name = config['model']['name']
+        f_train, f_valid, f_test = config['model']['f_train'], config['model']['f_valid'], config['model']['f_test']
+        shuffle = config['model']['shuffle']
+        PINNS = config['model']['PINNS']
+        epochs = config['model']['epochs']
+        patience = config['model']['patience']
+        data_path = config['paths']['data']
+        saved_models_path = config['paths']['saved_models']
+        log_path = config['paths']['logs']
+    #with open(f'{saved_models_path}/{name}/model.toml','w') as f:
+    #    toml.dump(config,f)
     # 1. Set the `PYTHONHASHSEED` environment variable at a fixed value
     os.environ['PYTHONHASHSEED']=str(seed)
     # 2. Set the `python` built-in pseudo-random generator at a fixed value
@@ -114,44 +117,40 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     #torch.use_deterministic_algorithms(mode=True)
 
-    ## Loading data
-    file = h5py.File('./data.hdf5','r')
+    m_i = 1.67262192369e-27
+    m_e = 9.1093837015e-31
+
+    file = h5py.File(f'{data_path}','r')
     bursts = list(file[f"{sat}"].keys())
     file.close()
+    bursts = pd.DataFrame([datetime.strptime(burst, f'%Y_%m_%dT%H_%M_%S') for burst in bursts])
+    bursts = bursts.where((t1 < bursts)&(bursts < t2)).dropna()
+    bursts = [datetime.strftime(event,'%Y_%m_%dT%H_%M_%S') for event in bursts[0]]
 
-    #bursts = [datetime.strptime(burst, f'/{sat}/%Y_%m_%dT%H_%M_%S') for burst in bursts]
-    bursts = pd.DataFrame(bursts)
-
-    bursts = bursts.where((str(t1.date()) < bursts)&(bursts < str(t2.date()))).dropna()
-
-    df = pd.concat([pd.read_hdf('./data.hdf5',key=f"{sat}/{event[0]}") for event in bursts.values]).dropna()
+    df = pd.concat([pd.read_hdf(f'{data_path}',key=f"{sat}/{event}") for event in bursts]).dropna()
     ## Calculating velocity, and droping small density data
-
     df['ux']=(m_i*df['vx_i']+m_e*df['vx_e'])/(m_i+m_e)
     df['uy']=(m_i*df['vy_i']+m_e*df['vy_e'])/(m_i+m_e)
     df['uz']=(m_i*df['vz_i']+m_e*df['vz_e'])/(m_i+m_e)
-    df = df.where(df['e_density']>1).dropna()
-
+    df = df.where(df['e_density']>density_threshold).dropna()
     if PINNS:
         df[['ex_mhd','ey_mhd','ez_mhd']] = E_mhd(df)
         df[['ex_hall','ey_hall','ez_hall']] = E_hall(df)
-        ## Input / Output wanted
         input_features = ['bx', 'by', 'bz',
-                    'jx', 'jy', 'jz',
-                    'ux', 'uy', 'uz',
-                    'ex_mhd','ey_mhd','ez_mhd',
-                    'ex_hall','ey_hall','ez_hall',
-                    'e_density',]
+                'jx', 'jy', 'jz',
+                'ux', 'uy', 'uz',
+                'e_density',
+                'ex_mhd','ey_mhd','ez_mhd',
+                'ex_hall','ey_hall','ez_hall',
+                ]
         output_targets = ['ex','ey','ez']
     else:
-        ## Input / Output wanted
+    ## Input / Output wanted
         input_features = ['bx', 'by', 'bz',
                     'jx', 'jy', 'jz',
                     'ux', 'uy', 'uz',
-                    'e_density',]
+                    'e_density']
         output_targets = ['ex','ey','ez']
-    
-
     df = df.drop(df.columns.drop(input_features+output_targets),axis=1) #drop useless data
     df = df[input_features + output_targets] #reorder columns for input to the left and output to the right
 
@@ -189,7 +188,8 @@ if __name__ == "__main__":
     ## Apply the scaling obtained from the “train” data to “validation” and “test” data
     df_val_scaled = scaler.transform(df_val)
     df_test_scaled = scaler.transform(df_test)
-    joblib.dump(scaler, f'../Saved_models/{name}/scaler.save') #Save the scale
+    
+    #joblib.dump(scaler, f'{saved_models_path}/{name}/scaler.save') #Save the scale
     ## Get input 'X'
     X_train = df_train_scaled[:,0:len(input_features)]
     X_test = df_test_scaled[:,0:len(input_features)]
@@ -202,10 +202,10 @@ if __name__ == "__main__":
     model = first_dnn(input_features,output_targets)
     #model.summary()
 
-    log_dir = f'../logs/fit/{name}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = f'{log_path}/fit/{name}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # checkpoint
-    filepath= f'../Saved_models/{name}/_weights.best.keras'
+    filepath= f'{saved_models_path}/{name}/_weights.best.keras'
     checkpoint = keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True)
     earlystopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience)
     
@@ -215,5 +215,5 @@ if __name__ == "__main__":
     model.fit(X_train, y_train, epochs=epochs, 
             validation_data=(X_val, y_val), verbose=2,
             callbacks=my_callbacks)
-    model.save(f'../Saved_models/{name}/model.keras')
+    model.save(f'{saved_models_path}/{name}/model.keras')
 

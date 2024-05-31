@@ -3,16 +3,21 @@ seed = 1
 
 [data]
 t1 = 2015-09-07T00:00:00 #begin of time interval for downloading data
-t2 = 2016-01-31T00:00:00 #end of time interval for downloading data
-sat = "mms2" #satelit name
-density_threshold = 1 #cm-3
+t2 = 2016-01-01T00:00:00 #2016-01-01T00:00:00 #end of time interval for downloading data
+sat = "mms1" #spacecraft name
+density_threshold = 0 #cm-3
+
+[paths]
+data = "./data.hdf5"
+saved_models = "/home/esevegnes/Workspace/Saved_models"
+logs = "/home/esevegnes/Workspace/logs/logs_report"
 
 [model]
-name = "DNN_XL_SP_0"
+name = "rep_no_thresh_XL"
 f_train = 0.8
 f_valid = 0.1
 f_test = 0.1
 shuffle = true #shuffle test, train, and validation
-PINNS = true #give or not the cross product for E_hall and E_mhd
-epochs = 100
-patience = 15
+OHM = true #give or not the cross product for E_hall and E_mhd
+epochs = 3000
+patience = 20

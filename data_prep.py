@@ -73,6 +73,7 @@ def sat_group(sat=str):
                 MMStree.MMS1.FPI.burst_mode.mms1_fpi_brst_desm.mms1_brst_desm_v, #electron velocity
                 #MMStree.MMS1.FPI.burst_mode.mms1_fpi_brst_dism.mms1_brst_dispres, #ion pressure tensor
                 #MMStree.MMS1.FPI.burst_mode.mms1_fpi_brst_desm.mms1_brst_desmpres # electron pressure tensor
+                MMStree.MMS1.Ephemeris.mms1_orb_t89d.mms1_xyz_gse #position xyz
                 ]
         if sat[-1] == '2':
             products = [MMStree.MMS2.EDP.fast.mms2_edp_dce, #electric field
@@ -84,6 +85,7 @@ def sat_group(sat=str):
                 MMStree.MMS2.FPI.burst_mode.mms2_fpi_brst_desm.mms2_brst_desm_v, #electron velocity
                 #MMStree.MMS2.FPI.burst_mode.mms2_fpi_brst_dism.mms2_brst_dispres, #ion pressure tensor
                 #MMStree.MMS2.FPI.burst_mode.mms2_fpi_brst_desm.mms2_brst_desmpres # electron pressure tensor
+                MMStree.MMS2.Ephemeris.mms2_orb_t89d.mms2_xyz_gse, #position xyz
                 ]
         if sat[-1] == '3':
             products = [MMStree.MMS3.EDP.fast.mms3_edp_dce, #electric field
@@ -95,6 +97,7 @@ def sat_group(sat=str):
                 MMStree.MMS3.FPI.burst_mode.mms3_fpi_brst_desm.mms3_brst_desm_v, #electron velocity
                 #MMStree.MMS3.FPI.burst_mode.mms3_fpi_brst_dism.mms3_brst_dispres, #ion pressure tensor
                 #MMStree.MMS3.FPI.burst_mode.mms3_fpi_brst_desm.mms3_brst_desmpres # electron pressure tensor
+                MMStree.MMS3.Ephemeris.mms3_orb_t89d.mms3_xyz_gse, #position xyz
                 ]
         if sat[-1] == '4':
             products = [MMStree.MMS4.EDP.fast.mms4_edp_dce, #electric field
@@ -106,6 +109,7 @@ def sat_group(sat=str):
                 MMStree.MMS4.FPI.burst_mode.mms4_fpi_brst_desm.mms4_brst_desm_v, #electron velocity
                 #MMStree.MMS4.FPI.burst_mode.mms4_fpi_brst_dism.mms4_brst_dispres, #ion pressure tensor
                 #MMStree.MMS4.FPI.burst_mode.mms4_fpi_brst_desm.mms4_brst_desmpres # electron pressure tensor
+                MMStree.MMS4.Ephemeris.mms4_orb_t89d.mms4_xyz_gse, #position xyz
                 ]
     return products
 
@@ -113,61 +117,69 @@ if __name__ == "__main__":
     import warnings
     from tables import NaturalNameWarning
     warnings.filterwarnings('ignore', category=NaturalNameWarning)
-    ## Global interval - all the data will be inside this range
-    sat = 'mms3'
-    t1 = datetime(2015,9,1,0,0,0)
-    t2 = datetime(2016,1,31,0,0,0)
 
-    print("Data interval:", t1,"to", t2)
-
+    ## Spacecraft
+    sats = ['mms1','mms2','mms3','mms4']
     
-    products = sat_group(sat=sat)
+    ## Time period to download
+    times = [(datetime(2015,9,7,0,0,0),datetime(2016,1,1,0,0,0))]
+
+    ## Stawarz & al (2021) - Comparative Analysis of the Various Generalized Ohm's Law Terms in Magnetosheath Turbulence as Observed by Magnetospheric Multiscale
+    #times = [(datetime(2016,9,28,16,30,0),datetime(2016,9,28,17,30,0)),(datetime(2016,12,9,8,30,0),datetime(2016,12,9,9,30,0)),(datetime(2017,1,28,8,30,0),datetime(2017,1,28,9,30,0))]
     
-    kept_f = 'brst_desm_n'
-    for k,product in enumerate(products):
-        if product.xmlid[5:]==kept_f:
-            kept_k = k
-            break
-    
-    burst_timetables = spz.inventories.tree.amda.TimeTables.SharedTimeTables.MMS_BURST_MODE
-    bursts = pd.concat([amda.get_timetable(burst_timetables.__dict__[k],disable_cache=True).to_dataframe() for k in keys(t1,t2)])
-    bursts = bursts.where((str(t1.date()) < bursts)&(bursts < str(t2.date()))).dropna()
+    ##Data path (where to save data)
+    #data_path = "./data_stawarz.hdf5"
+    data_path = "./data_training.hdf5"
 
-    data_times = pd.DataFrame(np.zeros((len(bursts),4)),columns=['t_import','data_size [GB]','t_downsample','t_saving'])
+    for sat in sats:
+        print(f"Spacecraft = {sat}")
+        for t1,t2 in  times:
+            print("Data interval:", t1, "to", t2)
+            products = sat_group(sat=sat)
+            kept_f = 'brst_desm_n'
+            for k,product in enumerate(products):
+                if product.xmlid[5:]==kept_f:
+                    kept_k = k
+                    break
 
-    for k,event in enumerate(bursts.values):
-        try:
-            print("Loading",event[0], "to", event[1], "data with Speasy")
-            start = time.time()
-            data = spz.get_data(products,event[0],event[1],disable_cache=True)
-            end = time.time()
-            data_times.iloc[k,0] = end-start
-            print("Loading OK, time elapsed: ",data_times.iloc[k,0])
-            
-            data = [data[0]['e_gse'].to_dataframe()]+[k.to_dataframe() for k in data[1:]]+[data[0]['dce : qual'].to_dataframe()]
-            rename(products,data)
-            kept_idx = data[kept_k].index
-            print("Resampling everything to the choosen frequency")
-            start = time.time()
-            df = pd.concat([pd.concat([downsample(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) > len(kept_idx))[:,0] ],axis=1),
-                            pd.concat([re_index(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) ==len(kept_idx))[:,0] ],axis=1),
-                            pd.concat([upsample(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) < len(kept_idx))[:,0] ],axis=1)],
-                           axis=1)
-            
-            df = df.where(df['dce : qual']>=2).dropna().drop('dce : qual',axis='columns') #select only ok / good data
+            burst_timetables = spz.inventories.tree.amda.TimeTables.SharedTimeTables.MMS_BURST_MODE
+            bursts = pd.concat([amda.get_timetable(burst_timetables.__dict__[k],disable_cache=True).to_dataframe() for k in keys(t1,t2)])
+            bursts = bursts.where((str(t1) < bursts)&(bursts < str(t2))).dropna()
+            data_times = pd.DataFrame(np.zeros((len(bursts),4)),columns=['t_import','data_size [GB]','t_downsample','t_saving'])
 
-            end = time.time()
-            data_times.iloc[k,2] = end-start
+            for k,event in enumerate(bursts.values):
+                try:
+                    print("Loading",event[0], "to", event[1], "data with Speasy")
+                    start = time.time()
+                    data = spz.get_data(products,event[0],event[1],disable_cache=True)
+                    end = time.time()
+                    data_times.iloc[k,0] = end-start
+                    print("Loading OK, time elapsed: ",data_times.iloc[k,0])
+                    
+                    data = [data[0]['e_gse'].to_dataframe()]+[k.to_dataframe() for k in data[1:]]+[data[0]['dce : qual'].to_dataframe()]
+                    rename(products,data)
+                    kept_idx = data[kept_k].index
+                    print("Resampling everything to the choosen frequency")
+                    start = time.time()
+                    df = pd.concat([pd.concat([downsample(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) > len(kept_idx))[:,0] ],axis=1),
+                                    pd.concat([re_index(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) ==len(kept_idx))[:,0] ],axis=1),
+                                    pd.concat([upsample(df=data[ind],index=kept_idx) for ind in np.argwhere(np.array([len(dat_) for dat_ in data]) < len(kept_idx))[:,0] ],axis=1)],
+                                axis=1)
+                    
+                    df = df.where(df['dce : qual']>=2).dropna().drop('dce : qual',axis='columns') #select only ok / good data
 
-            print("Downsampling OK, time elapsed: ",data_times.iloc[k,2])
-            print("Saving data to HDF5")
-            start = time.time()
-            df.to_hdf('./data_new.hdf5',key=f"{sat}/{datetime.strftime(event[0],format='%Y_%m_%dT%H_%M_%S')}",mode='a', dropna=True)
-            end = time.time()
-            data_times.iloc[k,3] = end-start
-            print("Saving OK, time elapsed: ",data_times.iloc[k,3])
+                    end = time.time()
+                    data_times.iloc[k,2] = end-start
 
-        except Exception as e:
-            print('Data error, burst is skipped')
-            print(e)
-            continue
+                    print("Downsampling OK, time elapsed: ",data_times.iloc[k,2])
+                    print("Saving data to HDF5")
+                    start = time.time()
+                    df.to_hdf(data_path,key=f"{sat}/{datetime.strftime(event[0],format='%Y_%m_%dT%H_%M_%S')}",mode='a', dropna=True)
+                    end = time.time()
+                    data_times.iloc[k,3] = end-start
+                    print("Saving OK, time elapsed: ",data_times.iloc[k,3])
+
+                except Exception as e:
+                    print('Data error, burst is skipped')
+                    print(e)
+                    continue
