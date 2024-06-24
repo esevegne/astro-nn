@@ -1,2 +1,6 @@
-run.log
-data.hdf5
+*.log
+*.csv
+*.toml
+*.hdf5
+fig
+__pycache__

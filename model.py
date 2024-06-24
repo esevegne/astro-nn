@@ -1,14 +1,20 @@
+<<<<<<< HEAD
 import speasy as spz
 from speasy import amda 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+=======
+import os
+os.environ['KERAS_BACKEND'] = 'torch'
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
 from numpy import mean
 from numpy import std
 import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 #choose kernel (keras-env) when run on Macbook Pro 
+<<<<<<< HEAD
 from keras.models import Sequential
 from keras.layers import LSTM
 from keras.layers import Dense
@@ -22,6 +28,13 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from datetime import datetime
 import calendar
+=======
+import keras
+from keras import layers
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
 import torch
 import torch.nn
 import torch.optim
@@ -30,6 +43,7 @@ import torch.utils.data
 import torchvision.datasets
 import torchvision.models
 import torchvision.transforms as T
+<<<<<<< HEAD
 import os
 import random
 
@@ -58,6 +72,27 @@ def first_dnn(input_features,output_targets):
     ])
     model.compile(loss='mean_absolute_error',
                 optimizer=tf.keras.optimizers.Adam(0.001))
+=======
+from datetime import datetime
+import calendar
+import random
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import toml
+import h5py
+
+def first_dnn(input_features,output_targets):
+    model = keras.Sequential([
+        layers.Dense(len(input_features), activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dropout(0.2),
+        layers.Dense(len(output_targets))
+    ])
+    model.compile(loss='mean_absolute_error',
+                optimizer=keras.optimizers.Adam(0.001))
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
 
     return model
 
@@ -69,7 +104,11 @@ def E_mhd(df):
     '''
     dg = pd.DataFrame(index=df.index,columns=['ex','ey','ez'])
     dg['ex']=(df['by']*df['uz']-df['uy']*df['bz'])/1e3
+<<<<<<< HEAD
     dg['ey']=-(df['bz']*df['ux']-df['uz']*df['bx'])/1e3 #MINUS SIGN TO FIT MEASUREMENTS IN MMS1 MAYBE THERE IS A ISSUE WITH THE MEASUREMENT TOOL IN MMS1
+=======
+    dg['ey']=(df['bz']*df['ux']-df['uz']*df['bx'])/1e3 #MINUS SIGN TO FIT MEASUREMENTS IN MMS1 MAYBE THERE IS A ISSUE WITH THE MEASUREMENT TOOL IN MMS1
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
     dg['ez']=(df['bx']*df['uy']-df['ux']*df['by'])/1e3
     return dg
 
@@ -109,6 +148,7 @@ m_i = 1.67262192369e-27
 m_e = 9.1093837015e-31
 if __name__ == "__main__":
     ## Global interval - all the data will be inside this range
+<<<<<<< HEAD
     sat = 'mms1'
     t1 = datetime(2015,9,7,0,0,0)
     t2 = datetime(2015,9,30,0,0,0)
@@ -116,11 +156,33 @@ if __name__ == "__main__":
     seed = 1
     PINNS = False #Do we physics inform the model ? i.e. giving cross products
 
+=======
+    with open('./model_config.toml','r') as f:
+        config = toml.load(f)
+        seed = config['stat']['seed']
+        t1 = config['data']['t1']
+        t2 = config['data']['t2']
+        sat = config['data']['sat']
+        density_threshold = config['data']['density_threshold']
+        name = config['model']['name']
+        f_train, f_valid, f_test = config['model']['f_train'], config['model']['f_valid'], config['model']['f_test']
+        shuffle = config['model']['shuffle']
+        PINNS = config['model']['PINNS']
+        epochs = config['model']['epochs']
+        patience = config['model']['patience']
+        data_path = config['paths']['data']
+        saved_models_path = config['paths']['saved_models']
+        log_path = config['paths']['logs']
+    #with open(f'{saved_models_path}/{name}/model.toml','w') as f:
+    #    toml.dump(config,f)
+    # 1. Set the `PYTHONHASHSEED` environment variable at a fixed value
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
     os.environ['PYTHONHASHSEED']=str(seed)
     # 2. Set the `python` built-in pseudo-random generator at a fixed value
     random.seed(seed)
     # 3. Set the `numpy` pseudo-random generator at a fixed value
     np.random.seed(seed)
+<<<<<<< HEAD
     # 4. Set the `tensorflow` pseudo-random generator at a fixed value
     tf.random.set_seed(seed)
     ## Loading data
@@ -161,6 +223,46 @@ if __name__ == "__main__":
         output_targets = ['ex','ey','ez']
     
 
+=======
+    # 4. Set the `torch` pseudo-random generator at a fixed value
+    torch.manual_seed(seed)
+    #torch.use_deterministic_algorithms(mode=True)
+
+    m_i = 1.67262192369e-27
+    m_e = 9.1093837015e-31
+
+    file = h5py.File(f'{data_path}','r')
+    bursts = list(file[f"{sat}"].keys())
+    file.close()
+    bursts = pd.DataFrame([datetime.strptime(burst, f'%Y_%m_%dT%H_%M_%S') for burst in bursts])
+    bursts = bursts.where((t1 < bursts)&(bursts < t2)).dropna()
+    bursts = [datetime.strftime(event,'%Y_%m_%dT%H_%M_%S') for event in bursts[0]]
+
+    df = pd.concat([pd.read_hdf(f'{data_path}',key=f"{sat}/{event}") for event in bursts]).dropna()
+    ## Calculating velocity, and droping small density data
+    df['ux']=(m_i*df['vx_i']+m_e*df['vx_e'])/(m_i+m_e)
+    df['uy']=(m_i*df['vy_i']+m_e*df['vy_e'])/(m_i+m_e)
+    df['uz']=(m_i*df['vz_i']+m_e*df['vz_e'])/(m_i+m_e)
+    df = df.where(df['e_density']>density_threshold).dropna()
+    if PINNS:
+        df[['ex_mhd','ey_mhd','ez_mhd']] = E_mhd(df)
+        df[['ex_hall','ey_hall','ez_hall']] = E_hall(df)
+        input_features = ['bx', 'by', 'bz',
+                'jx', 'jy', 'jz',
+                'ux', 'uy', 'uz',
+                'e_density',
+                'ex_mhd','ey_mhd','ez_mhd',
+                'ex_hall','ey_hall','ez_hall',
+                ]
+        output_targets = ['ex','ey','ez']
+    else:
+    ## Input / Output wanted
+        input_features = ['bx', 'by', 'bz',
+                    'jx', 'jy', 'jz',
+                    'ux', 'uy', 'uz',
+                    'e_density']
+        output_targets = ['ex','ey','ez']
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
     df = df.drop(df.columns.drop(input_features+output_targets),axis=1) #drop useless data
     df = df[input_features + output_targets] #reorder columns for input to the left and output to the right
 
@@ -188,6 +290,7 @@ if __name__ == "__main__":
     print("Test interval: ", t_test_begin, t_test_end)
 
 
+<<<<<<< HEAD
     df_train, df_test = train_test_split(df,test_size = f_test+f_valid,train_size=f_train,random_state=seed,shuffle=False)
     df_val, df_test = df_test.iloc[:len(df_test)//2,:], df_test.iloc[len(df_test)//2:,:]
 
@@ -195,6 +298,11 @@ if __name__ == "__main__":
     df_train = df[id_train_beg:id_train_end]
     df_val = df[id_val_beg:id_val_end]
     df_test = df[id_test_beg:id_test_end]
+=======
+    df_train, df_test = train_test_split(df,test_size = f_test+f_valid,train_size=f_train,random_state=seed,shuffle=shuffle)
+    df_val, df_test = df_test.iloc[:len(df_test)//2,:], df_test.iloc[len(df_test)//2:,:]
+
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
     ## Define a scaler function
     scaler = MinMaxScaler()
     ## Obtain scaler based on the “train” data
@@ -202,7 +310,12 @@ if __name__ == "__main__":
     ## Apply the scaling obtained from the “train” data to “validation” and “test” data
     df_val_scaled = scaler.transform(df_val)
     df_test_scaled = scaler.transform(df_test)
+<<<<<<< HEAD
 
+=======
+    
+    #joblib.dump(scaler, f'{saved_models_path}/{name}/scaler.save') #Save the scale
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
     ## Get input 'X'
     X_train = df_train_scaled[:,0:len(input_features)]
     X_test = df_test_scaled[:,0:len(input_features)]
@@ -215,6 +328,7 @@ if __name__ == "__main__":
     model = first_dnn(input_features,output_targets)
     #model.summary()
 
+<<<<<<< HEAD
     log_dir = f'../logs/fit/DNN_PINNS={PINNS}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
@@ -237,3 +351,20 @@ if __name__ == "__main__":
 
     prof.stop()
     model.save(f'../Saved_models/DNN_PINNS={PINNS}/model.h5')
+=======
+    log_dir = f'{log_path}/fit/{name}_' + datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # checkpoint
+    filepath= f'{saved_models_path}/{name}/_weights.best.keras'
+    checkpoint = keras.callbacks.ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True)
+    earlystopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience)
+    
+    #X_train, y_train = lstm_data_transform(X_train,y_train)
+    #X_val, y_val = lstm_data_transform(X_val,y_val)
+    my_callbacks = [earlystopping_callback, checkpoint]
+    model.fit(X_train, y_train, epochs=epochs, 
+            validation_data=(X_val, y_val), verbose=2,
+            callbacks=my_callbacks)
+    model.save(f'{saved_models_path}/{name}/model.keras')
+
+>>>>>>> 32b8d3e8c37ca9d32ec17387dc12328f779b0f32
