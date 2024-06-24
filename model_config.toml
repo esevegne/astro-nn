@@ -8,16 +8,16 @@ sat = "mms1" #spacecraft name
 density_threshold = 0 #cm-3
 
 [paths]
-data = "./data.hdf5"
+data = "./data_training.hdf5"
 saved_models = "/home/esevegnes/Workspace/Saved_models"
 logs = "/home/esevegnes/Workspace/logs/logs_report"
 
 [model]
-name = "rep_no_thresh_XL"
+name = "hlayer_check"
 f_train = 0.8
 f_valid = 0.1
 f_test = 0.1
 shuffle = true #shuffle test, train, and validation
 OHM = true #give or not the cross product for E_hall and E_mhd
-epochs = 3000
+epochs = 300
 patience = 20

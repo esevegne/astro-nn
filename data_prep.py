@@ -17,8 +17,10 @@ def rename(products,data):
     '''
     Rename the columns of dataset based on hard-coded matching between prods name (product.xmlid) and convenient name e.g. 'vx_e' for x velocity of electrons.
     '''
-    prd = ['edp-dce','brst_bgse','brst_jgse','brst_dis_n','brst_desm_n','brst_dis_vgse','brst_desm_v']
-    names = [['ex','ey','ez'],['bx','by','bz'],['jx','jy','jz'],['i_density'],['e_density'],['vx_i','vy_i','vz_i'],['vx_e','vy_e','vz_e']]
+    prd = ['edp-dce','brst_bgse','brst_jgse','brst_dis_n','brst_desm_n','brst_dis_vgse','brst_desm_v','xyz_gse',]
+    names = [['ex','ey','ez'],['bx','by','bz'],['jx','jy','jz'],['i_density'],['e_density'],['vx_i','vy_i','vz_i'],['vx_e','vy_e','vz_e'],['x','y','z']]
+    # Dictionnary could be more efficient / cleaner code
+
     for k,product in enumerate(products):
         product = product.xmlid #return e.g. mms4_brst_dis_vgse 
         product = product[5:] #suppress the "mmsN_"

@@ -157,7 +157,7 @@ class PCC(reduction_metrics.Mean):
 
 #### Dataset
 class MMS_Dataset(Dataset):
-    def __init__(self,sat=str,data_path=str,t1=datetime,t2=datetime,density_threshold=float,OHM=bool):
+    def __init__(self,sat=str,data_path=str,t1=datetime,t2=datetime,density_threshold=float,OHM=bool,XYZ=False):
         
         m_i = 1.67262192369e-27
         m_e = 9.1093837015e-31
@@ -170,6 +170,7 @@ class MMS_Dataset(Dataset):
         bursts = [datetime.strftime(event,'%Y_%m_%dT%H_%M_%S') for event in bursts[0]]
 
         df = pd.concat([pd.read_hdf(f'{data_path}',key=f"{sat}/{event}") for event in bursts]).dropna()
+
         ## Calculating velocity, and droping small density data
         df['ux']=(m_i*df['vx_i']+m_e*df['vx_e'])/(m_i+m_e)
         df['uy']=(m_i*df['vy_i']+m_e*df['vy_e'])/(m_i+m_e)
@@ -193,6 +194,8 @@ class MMS_Dataset(Dataset):
                         'ux', 'uy', 'uz',
                         'e_density']
             output_targets = ['ex','ey','ez']
+        if XYZ:
+            self.xyz = df[['x','y','z']]
         df = df.drop(df.columns.drop(input_features+output_targets),axis=1) #drop useless data
         df = df[input_features + output_targets] #reorder columns for input to the left and output to the right
 
